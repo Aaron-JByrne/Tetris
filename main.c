@@ -21,6 +21,7 @@ typedef struct Game {
     int score;
     int grid[10][20];
     int gridColours[10][20];
+    tType queue[5];
 }Game;
 
 tetromino PIECES[7] = {
@@ -303,6 +304,16 @@ void updateText(SDL_Renderer *renderer, TTF_Font *font, SDL_Texture **texture, G
     SDL_Surface *surface = TTF_RenderUTF8_Blended_Wrapped(font, text, color, 3000);
     *texture = SDL_CreateTextureFromSurface(renderer, surface);
     SDL_FreeSurface(surface);
+}
+
+tType popQueue(Game *g) {
+    tType out = g->queue[0];
+    for (int i = 1; i<5; i++) {
+        g->queue[i-1] = g->queue[i];
+    }
+    g->queue[4] = (tType)(rand() % 7);
+
+    return out;
 }
 
 int main(int argc, char *argv[]) {
