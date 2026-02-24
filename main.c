@@ -83,6 +83,8 @@ int zRotations[4][4][2] = {
     {{1,0},{0,1},{1,1},{0,2}}
 };
 
+
+//rotation[tType][t->rotation][blockIndex][coord]
 int (*rotation[7])[4][2] = {
     lRotations,jRotations,tRotations,sRotations,zRotations,iRotations,oRotations
 };
@@ -90,39 +92,39 @@ int (*rotation[7])[4][2] = {
 void tTypeColour(tType type, int *r, int *g, int *b) {
     switch (type) {
         case L:
-            *r = 0;
-            *g = 0;
-            *b = 255;
+            *r = 204;
+            *g = 101;
+            *b = 2;
             break;
         case J:
-            *r = 225;
-            *g = 100;
-            *b = 0;
+            *r = 0;
+            *g = 0;
+            *b = 203;
             break;
         case T:
-            *r = 250;
+            *r = 158;
             *g = 0;
-            *b = 230;
+            *b = 203;
             break;
         case S:
-            *r = 255;
-            *g = 0;
+            *r = 0;
+            *g = 204;
             *b = 0;
             break;
         case Z:
-            *r = 0;
-            *g = 255;
+            *r = 204;
+            *g = 1;
             *b = 0;
             break;
         case I:
             *r = 0;
-            *g = 20;
-            *b = 255;
+            *g = 204;
+            *b = 203;
             break;
         case O:
-            *r = 0;
-            *g = 150;
-            *b = 30;
+            *r = 204;
+            *g = 204;
+            *b = 2;
             break;
     }
 };
@@ -203,8 +205,24 @@ void lockTetromino(tetromino *t, Game *game) {
     }
 }
 
-void nextBlock(tetromino *t) {
-    tetromino nextBlock = newTetromino(rand() % 7);
+tType popQueue(Game *g) {
+    tType out = g->queue[0];
+    for (int i = 1; i<5; i++) {
+        g->queue[i-1] = g->queue[i];
+    }
+    g->queue[4] = (tType)(rand() % 7);
+
+    return out;
+}
+
+void nextBlock(tetromino *t, Game *g) {
+    tetromino nextBlock;
+    nextBlock.type = popQueue(g);
+    nextBlock.rotation = 0;
+    for (int i = 0; i<4; i++) {
+        nextBlock.blocks[i][0] = rotation[nextBlock.type][nextBlock.rotation][i][0];
+        nextBlock.blocks[i][1] = rotation[nextBlock.type][nextBlock.rotation][i][1];
+    }
 
     *t = nextBlock;
     t->position[0] = 4;
@@ -264,10 +282,10 @@ void displayGrid(int g[10][20]) {
     }
 }
 
-void storeBlock(tetromino *current, tetromino *storedBlock) {
+void storeBlock(tetromino *current, tetromino *storedBlock, Game *game) {
     if (storedBlock->type == -1) {
         *storedBlock = *current;
-        nextBlock(current);
+        nextBlock(current, game);
     }else {
         tetromino temp = *storedBlock;
         *storedBlock = *current;
@@ -277,6 +295,12 @@ void storeBlock(tetromino *current, tetromino *storedBlock) {
     current->position[1] = 0;
     storedBlock->position[0] = 4;
     storedBlock->position[1] = 0;
+}
+
+void initialiseQueue(Game *game) {
+    for (int i=0; i<5; i++) {
+        game->queue[i] = (tType)(rand() % 7);
+    }
 }
 
 void restart(tetromino *currentBlock, tetromino *storedBlock, Game *game) {
@@ -294,6 +318,8 @@ void restart(tetromino *currentBlock, tetromino *storedBlock, Game *game) {
 
     game->lineCount = 0;
     game->score = 0;
+
+    initialiseQueue(game);
 }
 
 void updateText(SDL_Renderer *renderer, TTF_Font *font, SDL_Texture **texture, Game *g) {
@@ -306,15 +332,9 @@ void updateText(SDL_Renderer *renderer, TTF_Font *font, SDL_Texture **texture, G
     SDL_FreeSurface(surface);
 }
 
-tType popQueue(Game *g) {
-    tType out = g->queue[0];
-    for (int i = 1; i<5; i++) {
-        g->queue[i-1] = g->queue[i];
-    }
-    g->queue[4] = (tType)(rand() % 7);
 
-    return out;
-}
+
+
 
 int main(int argc, char *argv[]) {
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -344,8 +364,8 @@ int main(int argc, char *argv[]) {
     tetromino sBlock = {{{1,0},{2,0},{0,1},{1,1}},{4,0}};
     tetromino zBlock = {{{0,0},{1,0},{1,1},{2,1}},{4,0}};
 
-    tetromino currentBlock = sBlock;
-    currentBlock.type = S;
+    tetromino currentBlock = lBlock;
+    currentBlock.type = L;
 
     tetromino storedBlock;
     storedBlock.type = -1;
@@ -361,6 +381,8 @@ int main(int argc, char *argv[]) {
     }
 
     int lineCount = 0;
+
+    initialiseQueue(&game);
 
     SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
 
@@ -378,6 +400,10 @@ int main(int argc, char *argv[]) {
     Uint32 lastSoftDropTime = lastDropTime;
 
     while (running) {
+        // for (int i=0; i<5; i++) {
+        //     printf("%d", (int)game.queue[i]);
+        // }
+        // printf("\n");
         while (SDL_PollEvent(&e)) {
             switch(e.type) {
                 case SDL_QUIT:
@@ -397,7 +423,7 @@ int main(int argc, char *argv[]) {
                             rotate(&currentBlock, -1);
                         }
                         if (e.key.keysym.scancode == SDL_SCANCODE_SPACE) {
-                            storeBlock(&currentBlock, &storedBlock);
+                            storeBlock(&currentBlock, &storedBlock, &game);
                         }
                         if (e.key.keysym.scancode == SDL_SCANCODE_R) {
                             restart(&currentBlock, &storedBlock, &game);
@@ -418,7 +444,7 @@ int main(int argc, char *argv[]) {
                 }else {
                     lockTetromino(&currentBlock, &game);
                     // printf("%d\n", grid[currentBlock.position[0]][currentBlock.position[1]]);
-                    nextBlock(&currentBlock);
+                    nextBlock(&currentBlock, &game);
                     checkGrid(&game);
                     updateText(renderer, font, &textTexture, &game);
                 }
@@ -428,7 +454,7 @@ int main(int argc, char *argv[]) {
             if (SDL_GetTicks() - lastHardDropTime > 500) {
                 if (state[SDL_SCANCODE_UP]) {
                     lockTetromino(&currentBlock, &game);
-                    nextBlock(&currentBlock);
+                    nextBlock(&currentBlock, &game);
                     checkGrid(&game);
                     updateText(renderer, font, &textTexture, &game);
                     lastHardDropTime = SDL_GetTicks();
@@ -504,15 +530,36 @@ int main(int argc, char *argv[]) {
             SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
             //stored block
+            SDL_Rect heldBlock = {XOFFSET+320, YOFFSET+110, 120,120};
+            SDL_RenderDrawRect(renderer, &heldBlock);
             if (storedBlock.type != -1) {
                 for (int i=0; i<4; i++) {
                     int r,g,b;
                     tTypeColour(storedBlock.type, &r, &g, &b);
                     SDL_SetRenderDrawColor(renderer, r,g,b,255);
-                    SDL_Rect cell = {XOFFSET+ 320 + storedBlock.blocks[i][0]*30, YOFFSET+120+storedBlock.blocks[i][1]*30, 30, 30};
+                    SDL_Rect cell = {XOFFSET+ 340 + storedBlock.blocks[i][0]*30, YOFFSET+120+storedBlock.blocks[i][1]*30, 30, 30};
                     SDL_RenderFillRect(renderer, &cell);
                 }
                 SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+            }
+
+
+            //queue
+            for (int i = 0; i<5; i++) {
+                for (int j = 0; j<4; j++) {
+                    tetromino tempTetro;
+                    tempTetro.type = game.queue[i];
+                    tempTetro.rotation = 0;
+                    for (int k=0; k<4; k++) {
+                        tempTetro.blocks[k][0] = rotation[tempTetro.type][tempTetro.rotation][k][0];
+                        tempTetro.blocks[k][1] = rotation[tempTetro.type][tempTetro.rotation][k][1];
+                    }
+                    int r,g,b;
+                    tTypeColour(tempTetro.type, &r, &g, &b);
+                    SDL_SetRenderDrawColor(renderer, r,g,b,255);
+                    SDL_Rect cell = {XOFFSET+ 520 + tempTetro.blocks[j][0]*20, YOFFSET+120+(100*i)+tempTetro.blocks[j][1]*20, 20, 20};
+                    SDL_RenderFillRect(renderer, &cell);
+                }
             }
 
 
