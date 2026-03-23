@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "bot.h"
+
 #define XOFFSET 50
 #define YOFFSET 150
 
@@ -22,6 +24,8 @@ typedef struct Game {
     int grid[10][20];
     int gridColours[10][20];
     tType queue[5];
+    int bag[7];
+    int bot_active;
 }Game;
 
 tetromino PIECES[7] = {
@@ -205,13 +209,41 @@ void lockTetromino(tetromino *t, Game *game) {
     }
 }
 
+void fillQueue(Game *g) {
+
+}
+
+void initialiseBag(int bag[7]) {
+    for (int i=0; i<7; i++) {
+        bag[i] = i;
+    }
+    for (int i=6; i>0;i--) {
+        int j = rand() % (i+1);
+        int temp = bag[i];
+        bag[i] = bag[j];
+        bag[j] = temp;
+    }
+}
+
+tType grabBag(Game *g) {
+    int out = g->bag[0];
+    if (out == -1) {
+        initialiseBag(g->bag);
+        return grabBag(g);
+    }
+    for (int i = 1; i<7; i++) {
+        g->bag[i-1] = g->bag[i];
+    }
+    g->bag[6] = -1;
+    return (tType)out;
+}
+
 tType popQueue(Game *g) {
     tType out = g->queue[0];
-    for (int i = 1; i<5; i++) {
+    for (int i=1; i<5; i++) {
         g->queue[i-1] = g->queue[i];
     }
-    g->queue[4] = (tType)(rand() % 7);
-
+    g->queue[4] = grabBag(g);
     return out;
 }
 
@@ -299,9 +331,11 @@ void storeBlock(tetromino *current, tetromino *storedBlock, Game *game) {
 
 void initialiseQueue(Game *game) {
     for (int i=0; i<5; i++) {
-        game->queue[i] = (tType)(rand() % 7);
+        game->queue[i] = game->bag[i];
     }
 }
+
+
 
 void restart(tetromino *currentBlock, tetromino *storedBlock, Game *game) {
     for (int y=0; y<20; y++) {
@@ -320,6 +354,7 @@ void restart(tetromino *currentBlock, tetromino *storedBlock, Game *game) {
     game->score = 0;
 
     initialiseQueue(game);
+    initialiseQueue(game);
 }
 
 void updateText(SDL_Renderer *renderer, TTF_Font *font, SDL_Texture **texture, Game *g) {
@@ -332,11 +367,8 @@ void updateText(SDL_Renderer *renderer, TTF_Font *font, SDL_Texture **texture, G
     SDL_FreeSurface(surface);
 }
 
-
-
-
-
 int main(int argc, char *argv[]) {
+    srand(time(NULL));
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         printf("SDL_Init Error: %s\n", SDL_GetError());
         return 1;
@@ -371,6 +403,7 @@ int main(int argc, char *argv[]) {
     storedBlock.type = -1;
 
     Game game;
+    game.bot_active = 0;
     game.lineCount = 0;
     game.score = 0;
     for (int y=0; y<20; y++) {
@@ -378,6 +411,11 @@ int main(int argc, char *argv[]) {
             game.grid[x][y] = 0;
             game.gridColours[x][y] = -1;
         }
+    }
+
+    initialiseBag(game.bag);
+    for (int i=0; i<7; i++) {
+        printf("%d ", game.bag[i]);
     }
 
     int lineCount = 0;
@@ -400,10 +438,6 @@ int main(int argc, char *argv[]) {
     Uint32 lastSoftDropTime = lastDropTime;
 
     while (running) {
-        // for (int i=0; i<5; i++) {
-        //     printf("%d", (int)game.queue[i]);
-        // }
-        // printf("\n");
         while (SDL_PollEvent(&e)) {
             switch(e.type) {
                 case SDL_QUIT:
@@ -411,7 +445,7 @@ int main(int argc, char *argv[]) {
                     break;
                 case SDL_KEYDOWN:
                     // printf("keydown!\n");
-                    // printf("key pressed: %d, SDL_SCANCODE_SPACE is %d\n", e.key.keysym.scancode, SDL_SCANCODE_ESCAPE);
+                    printf("key pressed: %d, SDL_SCANCODE_SPACE is %d\n", e.key.keysym.scancode, SDL_SCANCODE_ESCAPE);
                     if (e.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
                         paused = !paused;
                     }
@@ -429,7 +463,17 @@ int main(int argc, char *argv[]) {
                             restart(&currentBlock, &storedBlock, &game);
                             updateText(renderer, font, &textTexture, &game);
                         }
+                        if (e.key.keysym.scancode == SDL_SCANCODE_B) {
+                            game.bot_active = !game.bot_active;
+                        }
                     }
+                    break;
+            }
+        }
+        if (game.bot_active == 1) {
+            switch (getInput(&game, &currentBlock)) {
+                case 14:
+                    rotate(&currentBlock, 1);
                     break;
             }
         }

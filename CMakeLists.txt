@@ -8,5 +8,7 @@ find_package(SDL2 REQUIRED)
 find_package(SDL2_ttf REQUIRED)
 include_directories(${SDL2_INCLUDE_DIRS})
 
-add_executable(tetris main.c)
+add_executable(tetris main.c
+        bot.c
+        bot.h)
 target_link_libraries(tetris ${SDL2_LIBRARIES} SDL2_ttf::SDL2_ttf)
