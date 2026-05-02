@@ -146,6 +146,7 @@ def evaluateBoard(board):
 def simulate(board, t):
     simulatedBoard = board.copy()
     for block in range(4):
+        pass
 
 
 
@@ -159,7 +160,7 @@ def decideAction(board, t):
 
     for rotation in range(4):
         for column in range(10):
-            simulated_board = simulate(board, piece_type, piece_rotation)
+            simulated_board = simulate(board, t)
             score = evaluateBoard(simulated_board)
             if score > best_score:
                 best_score = score
