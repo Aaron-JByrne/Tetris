@@ -2,8 +2,7 @@
 #include <SDL2/SDL_ttf.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-#include "bot.h"
+#include <fcntl.h>
 
 #define XOFFSET 50
 #define YOFFSET 150
@@ -93,6 +92,7 @@ int (*rotation[7])[4][2] = {
     lRotations,jRotations,tRotations,sRotations,zRotations,iRotations,oRotations
 };
 
+//given rgb values and tType, rgb values updated to what they should
 void tTypeColour(tType type, int *r, int *g, int *b) {
     switch (type) {
         case L:
@@ -250,8 +250,14 @@ tType popQueue(Game *g) {
 void nextBlock(tetromino *t, Game *g) {
     tetromino nextBlock;
     nextBlock.type = popQueue(g);
+    //popQueue is returning type of -1, so its an invalid index, this happens in similiarly shaped functions too i think.
     nextBlock.rotation = 0;
     for (int i = 0; i<4; i++) {
+        // fprintf(stderr, "i = %d\n", i);
+        // fprintf(stderr, "nextBlock.type = %d\n", nextBlock.type);
+        // fprintf(stderr, "nextBlock.rotation = %d\n", nextBlock.rotation);
+        // fprintf(stderr, "nextBlock.blocks addr = %p\n", (void*)nextBlock.blocks);
+        // fprintf(stderr, "rotation addr = %p\n", (void*)rotation);
         nextBlock.blocks[i][0] = rotation[nextBlock.type][nextBlock.rotation][i][0];
         nextBlock.blocks[i][1] = rotation[nextBlock.type][nextBlock.rotation][i][1];
     }
@@ -259,6 +265,11 @@ void nextBlock(tetromino *t, Game *g) {
     *t = nextBlock;
     t->position[0] = 4;
     t->position[1] = 0;
+
+    if (g->bot_active == 1) {
+        printf("T%d%d",t->type,t->rotation);
+        fflush(stdout);
+    }
 }
 
 void rotate(tetromino *t, int direction) {
@@ -305,13 +316,18 @@ void checkGrid(Game *game) {
     game->score += scores[lineCount-1];
 }
 
-void displayGrid(int g[10][20]) {
+void printfGrid(int g[10][20]) {
     for (int y=0; y<20; y++) {
         for (int x=0; x<10; x++) {
-            printf("%d ", g[x][y]);
+            printf("%d", g[x][y]);
+            if (x < 9) {
+                printf(",");
+            }
         }
         printf("\n");
     }
+    printf("END\n");
+    fflush(stdout);
 }
 
 void storeBlock(tetromino *current, tetromino *storedBlock, Game *game) {
@@ -327,6 +343,11 @@ void storeBlock(tetromino *current, tetromino *storedBlock, Game *game) {
     current->position[1] = 0;
     storedBlock->position[0] = 4;
     storedBlock->position[1] = 0;
+
+
+    if (game->bot_active == 1) {
+        printf("T%d%d", current->type, current->rotation);
+    }
 }
 
 void initialiseQueue(Game *game) {
@@ -334,8 +355,6 @@ void initialiseQueue(Game *game) {
         game->queue[i] = game->bag[i];
     }
 }
-
-
 
 void restart(tetromino *currentBlock, tetromino *storedBlock, Game *game) {
     for (int y=0; y<20; y++) {
@@ -354,7 +373,6 @@ void restart(tetromino *currentBlock, tetromino *storedBlock, Game *game) {
     game->score = 0;
 
     initialiseQueue(game);
-    initialiseQueue(game);
 }
 
 void updateText(SDL_Renderer *renderer, TTF_Font *font, SDL_Texture **texture, Game *g) {
@@ -368,14 +386,16 @@ void updateText(SDL_Renderer *renderer, TTF_Font *font, SDL_Texture **texture, G
 }
 
 int main(int argc, char *argv[]) {
+    fcntl(0, F_SETFL, O_NONBLOCK);
+
     srand(time(NULL));
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-        printf("SDL_Init Error: %s\n", SDL_GetError());
+        fprintf(stderr, "SDL_Init Error: %s\n", SDL_GetError());
         return 1;
     }
     SDL_Window *win = SDL_CreateWindow("Tetris", 100, 100, 650, 800, SDL_WINDOW_SHOWN);
     if (win == NULL) {
-        printf("SDL_CreateWindow Error: %s\n", SDL_GetError());
+        fprintf(stderr, "SDL_CreateWindow Error: %s\n", SDL_GetError());
         SDL_Quit();
         return 1;
     }
@@ -383,10 +403,7 @@ int main(int argc, char *argv[]) {
     TTF_Init();
     TTF_Font *font = TTF_OpenFont("/System/Library/Fonts/Monaco.ttf", 20);
 
-
     const Uint8 *state = SDL_GetKeyboardState(NULL);
-
-    // int grid[10][20] = {0};
 
     tetromino lBlock = {{{0,0},{0,1}, {0,2}, {1,2}},{4,0}};
     tetromino jBlock = {{{1,0}, {1,1}, {1,2}, {0,2}}, {4,0}};
@@ -404,6 +421,11 @@ int main(int argc, char *argv[]) {
 
     Game game;
     game.bot_active = 0;
+    for (int i=1; i < argc; i++) {
+        if ( strcmp(argv[i], "--bot") == 0) {
+            game.bot_active = 1;
+        }
+    }
     game.lineCount = 0;
     game.score = 0;
     for (int y=0; y<20; y++) {
@@ -415,7 +437,7 @@ int main(int argc, char *argv[]) {
 
     initialiseBag(game.bag);
     for (int i=0; i<7; i++) {
-        printf("%d ", game.bag[i]);
+        fprintf(stderr, "%d ", game.bag[i]);
     }
 
     int lineCount = 0;
@@ -445,7 +467,7 @@ int main(int argc, char *argv[]) {
                     break;
                 case SDL_KEYDOWN:
                     // printf("keydown!\n");
-                    printf("key pressed: %d, SDL_SCANCODE_SPACE is %d\n", e.key.keysym.scancode, SDL_SCANCODE_ESCAPE);
+                    fprintf(stderr, "key pressed: %d, SDL_SCANCODE_SPACE is %d\n", e.key.keysym.scancode, SDL_SCANCODE_ESCAPE);
                     if (e.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
                         paused = !paused;
                     }
@@ -471,10 +493,21 @@ int main(int argc, char *argv[]) {
             }
         }
         if (game.bot_active == 1) {
-            switch (getInput(&game, &currentBlock)) {
-                case 14:
-                    rotate(&currentBlock, 1);
-                    break;
+            printfGrid(game.grid);
+
+            char action[32];
+            if (fgets(action, sizeof(action), stdin) != NULL){
+                if (strncmp(action, "rotate_right", 12) == 0) rotate(&currentBlock, 1);
+                else if (strncmp(action, "rotate_left", 11) == 0) rotate(&currentBlock, -1);
+                else if (strncmp(action, "left", 4) == 0 && canSlide(&currentBlock, &game, -1) >= 0) currentBlock.position[0]--;
+                else if (strncmp(action, "right", 5) == 0 && canSlide(&currentBlock, &game, 1) <= 0) currentBlock.position[1]++;
+                else if (strncmp(action, "drop", 4) == 0) {
+                    lockTetromino(&currentBlock, &game);
+                    nextBlock(&currentBlock, &game);
+                    checkGrid(&game);
+                    updateText(renderer, font, &textTexture, &game);
+                }
+                else if (strncmp(action, "none", 4) == 0) {}
             }
         }
 
@@ -589,22 +622,22 @@ int main(int argc, char *argv[]) {
 
 
             //queue
-            for (int i = 0; i<5; i++) {
-                for (int j = 0; j<4; j++) {
-                    tetromino tempTetro;
-                    tempTetro.type = game.queue[i];
-                    tempTetro.rotation = 0;
-                    for (int k=0; k<4; k++) {
-                        tempTetro.blocks[k][0] = rotation[tempTetro.type][tempTetro.rotation][k][0];
-                        tempTetro.blocks[k][1] = rotation[tempTetro.type][tempTetro.rotation][k][1];
-                    }
-                    int r,g,b;
-                    tTypeColour(tempTetro.type, &r, &g, &b);
-                    SDL_SetRenderDrawColor(renderer, r,g,b,255);
-                    SDL_Rect cell = {XOFFSET+ 520 + tempTetro.blocks[j][0]*20, YOFFSET+120+(100*i)+tempTetro.blocks[j][1]*20, 20, 20};
-                    SDL_RenderFillRect(renderer, &cell);
-                }
-            }
+            // for (int i = 0; i<5; i++) {
+            //     for (int j = 0; j<4; j++) {
+            //         tetromino tempTetro;
+            //         tempTetro.type = game.queue[i];
+            //         tempTetro.rotation = 0;
+            //         for (int k=0; k<4; k++) {
+            //             tempTetro.blocks[k][0] = rotation[tempTetro.type][tempTetro.rotation][k][0];
+            //             tempTetro.blocks[k][1] = rotation[tempTetro.type][tempTetro.rotation][k][1];
+            //         }
+            //         int r,g,b;
+            //         tTypeColour(tempTetro.type, &r, &g, &b);
+            //         SDL_SetRenderDrawColor(renderer, r,g,b,255);
+            //         SDL_Rect cell = {XOFFSET+ 520 + tempTetro.blocks[j][0]*20, YOFFSET+120+(100*i)+tempTetro.blocks[j][1]*20, 20, 20};
+            //         SDL_RenderFillRect(renderer, &cell);
+            //     }
+            // }
 
 
 
