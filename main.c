@@ -216,9 +216,6 @@ void lockTetromino(tetromino *t, Game *game) {
     }
 }
 
-void fillQueue(Game *g) {
-
-}
 
 void initialiseBag(int bag[7]) {
     for (int i=0; i<7; i++) {
@@ -231,7 +228,19 @@ void initialiseBag(int bag[7]) {
         bag[j] = temp;
     }
 }
-
+void printfGrid(int g[10][20]) {
+    for (int y=0; y<20; y++) {
+        for (int x=0; x<10; x++) {
+            printf("%d", g[x][y]);
+            if (x < 9) {
+                printf(",");
+            }
+        }
+        printf("\n");
+    }
+    printf("END\n");
+    fflush(stdout);
+}
 // tType grabBag(Game *g) {
 //     int out = g->bag[0];
 //     if (out == -1) {
@@ -262,6 +271,13 @@ tType popQueue(Game *g) {
     return out;
 }
 
+// tType popQueue(Game *g) {
+//     static int index = 0;
+//     tType out =(tType)index++;
+//     index = index & 7;
+//     return out;
+// }
+
 void nextBlock(tetromino *t, Game *g) {
     tetromino nextBlock;
     nextBlock.type = popQueue(g);
@@ -283,6 +299,7 @@ void nextBlock(tetromino *t, Game *g) {
 
     if (g->bot_active == 1) {
         printf("T%d%d\n",t->type,t->rotation);
+        printfGrid(g->grid);
         fflush(stdout);
     }
 }
@@ -331,19 +348,7 @@ void checkGrid(Game *game) {
     game->score += scores[lineCount-1];
 }
 
-void printfGrid(int g[10][20]) {
-    for (int y=0; y<20; y++) {
-        for (int x=0; x<10; x++) {
-            printf("%d", g[x][y]);
-            if (x < 9) {
-                printf(",");
-            }
-        }
-        printf("\n");
-    }
-    printf("END\n");
-    fflush(stdout);
-}
+
 
 void storeBlock(tetromino *current, tetromino *storedBlock, Game *game) {
     if (storedBlock->type == -1) {
@@ -353,16 +358,15 @@ void storeBlock(tetromino *current, tetromino *storedBlock, Game *game) {
         tetromino temp = *storedBlock;
         *storedBlock = *current;
         *current = temp;
+        if (game->bot_active == 1) {
+            printf("T%d%d\n", current->type, current->rotation);
+            fflush(stdout);
+        }
     }
     current->position[0] = 4;
     current->position[1] = 0;
     storedBlock->position[0] = 4;
     storedBlock->position[1] = 0;
-
-
-    if (game->bot_active == 1) {
-        printf("T%d%d\n", current->type, current->rotation);
-    }
 }
 
 void initialiseQueue(Game *game) {
@@ -443,8 +447,8 @@ int main(int argc, char *argv[]) {
     for (int i=1; i < argc; i++) {
         if ( strcmp(argv[i], "--bot") == 0) {
             game.bot_active = 1;
-            printf("T%d%d\n", currentBlock.type, currentBlock.rotation);
-            fflush(stdout);
+            // printf("T%d%d\n", currentBlock.type, currentBlock.rotation);
+            // fflush(stdout);
         }
     }
     game.lineCount = 0;
@@ -459,6 +463,10 @@ int main(int argc, char *argv[]) {
     bag.index = 0;
     initialiseBag(bag.pieces);
     initialiseQueue(&game);
+    if (game.bot_active) {
+        printf("T%d%d\n", currentBlock.type, currentBlock.rotation);
+        fflush(stdout);
+    }
 
     int lineCount = 0;
 
@@ -485,7 +493,7 @@ int main(int argc, char *argv[]) {
                     break;
                 case SDL_KEYDOWN:
                     // printf("keydown!\n");
-                    fprintf(stderr, "key pressed: %d, SDL_SCANCODE_SPACE is %d\n", e.key.keysym.scancode, SDL_SCANCODE_ESCAPE);
+                    // fprintf(stderr, "key pressed: %d, SDL_SCANCODE_SPACE is %d\n", e.key.keysym.scancode, SDL_SCANCODE_ESCAPE);
                     if (e.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
                         paused = !paused;
                     }
@@ -511,12 +519,11 @@ int main(int argc, char *argv[]) {
             }
         }
         if (game.bot_active == 1) {
-            printfGrid(game.grid);
-
             char action[32];
             if (fgets(action, sizeof(action), stdin) != NULL){
                 if (strncmp(action, "rotate_right", 12) == 0) rotate(&currentBlock, 1);
                 else if (strncmp(action, "reset", 5) == 0) restart(&currentBlock, &storedBlock, &game);
+                else if (strncmp(action, "swap", 4) == 0) storeBlock(&currentBlock, &storedBlock, &game);
                 else if (strncmp(action, "rotate_left", 11) == 0) rotate(&currentBlock, -1);
                 else if (strncmp(action, "left", 4) == 0 && canSlide(&currentBlock, &game, -1) >= 0) currentBlock.position[0]--;
                 else if (strncmp(action, "right", 5) == 0 && canSlide(&currentBlock, &game, 1) <= 0) currentBlock.position[0]++;
