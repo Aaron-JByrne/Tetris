@@ -405,6 +405,34 @@ void updateText(SDL_Renderer *renderer, TTF_Font *font, SDL_Texture **texture, G
 }
 
 int main(int argc, char *argv[]) {
+    int joysticks = SDL_Init(SDL_INIT_JOYSTICK);
+
+    // If there was an error setting up the joystick subsystem, quit.
+    if (joysticks < 0) {
+        printf("Unable to initialize the joystick subsystem.\n");
+        return -1;
+    }
+
+    // Check how many joysticks are connected.
+    joysticks = SDL_NumJoysticks();
+    SDL_Joystick *joystick = NULL;
+    // printf("There are %d joysticks connected.\n", joysticks);
+
+    // If there are joysticks connected, open one up for reading
+    if (joysticks > 0) {
+        joystick = SDL_JoystickOpen(0);
+        if (SDL_JoystickOpen(0) == NULL) {
+            // printf("There was an error reading from the joystick.\n");
+            return -1;
+        }
+    }
+    // If there are no joysticks connected, exit the program.
+    // else {
+    //     // printf("There are no joysticks connected. Exiting...\n");
+    // }
+
+
+
     //sets the stdin to non blocking
     fcntl(0, F_SETFL, O_NONBLOCK);
 
@@ -511,8 +539,27 @@ int main(int argc, char *argv[]) {
                             restart(&currentBlock, &storedBlock, &game);
                             updateText(renderer, font, &textTexture, &game);
                         }
-                        if (e.key.keysym.scancode == SDL_SCANCODE_B) {
-                            game.bot_active = !game.bot_active;
+                    }
+                    break;
+                case SDL_JOYBUTTONDOWN:
+                    printf("%d", e.jbutton.button);
+                    //6 is pause button
+                    if (e.jbutton.button == 6) {
+                        paused = !paused;
+                    }
+                    if (!paused) {
+                        if (e.jbutton.button == 0) {
+                            rotate(&currentBlock, 1);
+                        }
+                        if (e.jbutton.button == 1) {
+                            rotate(&currentBlock, -1);
+                        }
+                        if (e.jbutton.button > 8 && e.jbutton.button < 10) {
+                            storeBlock(&currentBlock, &storedBlock, &game);
+                        }
+                        if (e.jbutton.button == 4) {
+                            restart(&currentBlock, &storedBlock, &game);
+                            updateText(renderer, font, &textTexture, &game);
                         }
                     }
                     break;
@@ -562,6 +609,16 @@ int main(int argc, char *argv[]) {
                     updateText(renderer, font, &textTexture, &game);
                     lastHardDropTime = SDL_GetTicks();
                 }
+                else if (joysticks > 0) {
+                    Uint8 upButton = SDL_JoystickGetButton(joystick, SDL_CONTROLLER_BUTTON_DPAD_UP);
+                    if (upButton) {
+                        lockTetromino(&currentBlock, &game);
+                        nextBlock(&currentBlock, &game);
+                        checkGrid(&game);
+                        updateText(renderer, font, &textTexture, &game);
+                        lastHardDropTime = SDL_GetTicks();
+                    }
+                }
             }
 
             if (SDL_GetTicks() - lastSoftDropTime > 50) {
@@ -572,6 +629,15 @@ int main(int argc, char *argv[]) {
                     }
                     //should the last drop time be synced with soft drop(manual drop)???
                 }
+                else if (joysticks > 0) {
+                    Uint8 downButton = SDL_JoystickGetButton(joystick, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
+                    if (downButton) {
+                        if (canFall(&currentBlock, &game) == 1) {
+                            currentBlock.position[1]++;
+                            lastSoftDropTime = SDL_GetTicks();
+                        }
+                    }
+                }
             }
 
             if (SDL_GetTicks() - lastHorizontalTime > 100) {
@@ -579,9 +645,23 @@ int main(int argc, char *argv[]) {
                     currentBlock.position[0]--;
                     lastHorizontalTime = SDL_GetTicks();
                 }
+                else if (joysticks > 0) {
+                    Uint8 leftButton = SDL_JoystickGetButton(joystick, SDL_CONTROLLER_BUTTON_DPAD_LEFT);
+                    if (leftButton && canSlide(&currentBlock, &game, -1) >= 0) {
+                        currentBlock.position[0]--;
+                        lastHorizontalTime = SDL_GetTicks();
+                    }
+                }
                 if (state[SDL_SCANCODE_RIGHT] && canSlide(&currentBlock, &game, 1) <= 0) {
                     currentBlock.position[0]++;
                     lastHorizontalTime = SDL_GetTicks();
+                }
+                else if (joysticks > 0) {
+                    Uint8 rightButton = SDL_JoystickGetButton(joystick, SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
+                    if (rightButton && canSlide(&currentBlock, &game, 1) <= 0) {
+                        currentBlock.position[0]++;
+                        lastHorizontalTime = SDL_GetTicks();
+                    }
                 }
             }
 

@@ -3,11 +3,10 @@ import time
 import sys
 ROTATIONS = [
     # L
-    [
-        [[0,0],[0,1],[0,2],[1,2]],
-        [[0,0],[1,0],[2,0],[0,1]],
-        [[0,0],[1,0],[1,1],[1,2]],
-        [[0,1],[1,1],[2,1],[2,0]],
+    [[[0,0],[0,1],[0,2],[1,2]],
+     [[0,0],[1,0],[2,0],[0,1]],
+     [[0,0],[1,0],[1,1],[1,2]],
+     [[0,1],[1,1],[2,1],[2,0]],
     ],
     # J
     [
@@ -139,17 +138,6 @@ proc = subprocess.Popen(
     text=True
 )
 
-
-actions = ["left"]
-
-# def waitForNewPiece():
-#     while True:
-#         line = proc.stdout.readline().strip()
-#         if line.startswith("T"):
-#             piece_type = int(line[1])
-#             piece_rotation = int(line[2])
-#             return Tetromino(piece_type, piece_rotation)
-
 def readState(game):
     grid = []
     while True:
@@ -200,8 +188,6 @@ def getBumpiness(heights):
 #     for row in board.grid:
 #         sys.stderr.write(''.join(['#' if c else '.' for c in row]) + '\n')
 
-def countLinesCleared(g):
-    return sum(1 for row in g.grid if all(cell == 1 for cell in row))
 def evaluateBoard(g):
     lines = g.checkGrid()
     heights = getColumnHeights(g)
@@ -249,6 +235,10 @@ def decideAction(g):
         if piece is None:
             continue
         for rotation in range(4):
+            if rotation != 0 and piece.type == 6:
+                continue
+            if rotation > 1 and piece.type in [3,4,5]:
+                continue
             for column in range(10):
                 sim_t = Tetromino(piece.type, rotation, column)
                 if not sim_t.isValidPosition():
